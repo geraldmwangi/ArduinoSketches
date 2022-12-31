@@ -44,7 +44,7 @@ as well as Adafruit raw 1.8" TFT display
 #define TFT_MOSI 5   // set these to be whatever pins you like!
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
 
-int poti=0;
+int radius=3;
 float p = 3.1415926;
 int len=0;
 int lastpos=0;
@@ -68,6 +68,7 @@ struct batClass
   float lastPosx;
   float momx;
   int color;
+  int poti;
 };
 
 batClass bat1, bat2;
@@ -89,110 +90,77 @@ void setup(void) {
   time = millis() - time;
 
   Serial.println(time, DEC);
-  //delay(500);
-
-  // large block of text
- // tft.fillScreen(ST7735_BLACK);
- // testdrawtext("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur adipiscing ante sed nibh tincidunt feugiat. Maecenas enim massa, fringilla sed malesuada et, malesuada sit amet turpis. Sed porttitor neque ut ante pretium vitae malesuada nunc bibendum. Nullam aliquet ultrices massa eu hendrerit. Ut sed nisi lorem. In vestibulum purus a tortor imperdiet posuere. ", ST7735_WHITE);
-  //delay(1000);
-
-  // tft print function!
-  //tftPrintTest();
-  //delay(4000);
-
-  // a single pixel
-  //tft.drawPixel(tft.width()/2, tft.height()/2, ST7735_GREEN);
-  //delay(500);
-
-  // line draw test
-  //testlines(ST7735_YELLOW);
-  //delay(500);
-
-  // optimized lines
-  //testfastlines(ST7735_RED, ST7735_BLUE);
- // delay(500);
-
-  //testdrawrects(ST7735_GREEN);
-  //delay(500);
-
-  //testfillrects(ST7735_YELLOW, ST7735_GREEN);
-  //delay(500);
-
-  //tft.fillScreen(ST7735_BLACK);
-  //testfillcircles(10, ST7735_BLUE);
-  //testdrawcircles(10, ST7735_WHITE);
- // delay(500);
-
-  //testroundrects();
-  //delay(500);
-
-  //testtriangles();
- // delay(500);
-
-  //mediabuttons();
-  //delay(500);
-
-  Serial.println("done");
-//  delay(1000);
-  //tft.fillScreen(ST7735_BLACK);
-    //  tft.setCursor(0, 0);
-  //tft.fillScreen(ST7735_BLACK);
-  //tft.setTextColor(ST7735_WHITE);
-  //tft.setTextSize(1);
-  //tft.setTextColor(ST7735_GREEN);
-  bat1.len=tft.width()/5.0;
-    float val=analogRead(poti);
+  bat1.poti=0;
+  bat1.len=tft.width()/4.0;
+    float val=analogRead(bat1.poti);
   bat1.lastPosx=tft.width()*(1.0-val/1024.0);
-  for(int i=(bat1.lastPosx);i<(bat1.lastPosx+bat1.len);i++)
-      tft.drawPixel(i, tft.height()*0.9, ST7735_GREEN);
   bat1.posy=tft.height()*0.9;
+  for(int i=(bat1.lastPosx);i<(bat1.lastPosx+bat1.len);i++)
+      tft.drawPixel(i, bat1.posy, ST7735_GREEN);
+  
   bat1.lasttime=millis();
   bat1.color=ST7735_GREEN;
+
+  bat2.poti=1;
+  bat2.len=tft.width()/4.0;
+    float val2=analogRead(bat2.poti);
+  bat2.lastPosx=tft.width()*(1.0-val2/1024.0);
+  bat2.posy=tft.height()*0.1;
+  for(int i=(bat2.lastPosx);i<(bat2.lastPosx+bat2.len);i++)
+      tft.drawPixel(i, bat2.posy, ST7735_GREEN);
+  
+  bat2.lasttime=millis();
+  bat2.color=ST7735_GREEN;
+
+
   ball.lasttime=millis();
-  ball.mass=10.0f;
+  ball.mass=1.0f;
   ball.lastPosx=tft.width()/2.0;
   ball.lastPosy=tft.height()/2.0;
-  ball.momx=ball.mass*100.0f;
-  ball.momy=ball.mass*100.0f; //mass times velocity (pixels/second)
+  ball.momx=100.0f; //Ball has unit mass
+  ball.momy=100.0f; 
 }
 void updateBall()
 {
+
   uint16_t currtime=millis();
   float timediff=(currtime-ball.lasttime)/1000.0;
-  int radius=3;
+
   //tft.fillCircle(ball.lastPosx, ball.lastPosy, radius, ST7735_BLACK);
   //if(ball.momx)
   {
     
-    ball.posx=ball.lastPosx+ball.momx*timediff/ball.mass;
+    ball.posx=ball.lastPosx+ball.momx*timediff;
     if(ball.posx+radius>tft.width()||ball.posx-radius<0)
     {
       ball.momx=-ball.momx;
-      ball.posx=ball.lastPosx+ball.momx*timediff/ball.mass;
+      ball.posx=ball.lastPosx+ball.momx*timediff;
     }
     
   }
   //if(ball.momy)
   {
     
-    ball.posy=ball.lastPosy+ball.momy*timediff/ball.mass;
+    ball.posy=ball.lastPosy+ball.momy*timediff;
     //char msg[100];
     //sprintf(msg,"posy: %d, timediff %d\0",ball.posy,currtime-ball.lasttime);
     //Serial.println(msg);
-    if(ball.posy+radius>tft.height())
-    {
-      bat1.color=ST7735_RED;
-      //bat1.len-=2;
-    }
-    else if(ball.posy<bat1.posy&&bat1.color==ST7735_RED)
-      bat1.color=ST7735_GREEN;
+
+    updateBat1();
+    updateBat2();
     
+    //Rebound the ball at the boundaries
     if(ball.posy+radius>tft.height()||ball.posy-radius<0)
     {
+      float signy=fabs(ball.momy)/ball.momy;
+      float signx=fabs(ball.momx)/ball.momx;
+      ball.momy+=signy*5;
+      ball.momx+=signx*5;
       ball.momy=-ball.momy;
-      //bat1.len-=1;
-      ball.posy=ball.lastPosy+ball.momy*timediff/ball.mass;
+      ball.posy=ball.lastPosy+ball.momy*timediff;
     }
+
+    //Bounce off bat1
     if((fabs(ball.posy-bat1.posy)<=(radius+1)&&
         (ball.posx>=bat1.posx&&ball.posx<=(bat1.posx+bat1.len)))||
         sqrt((ball.posx-bat1.posx)*(ball.posx-bat1.posx)+(ball.posy-bat1.posy)*(ball.posy-bat1.posy))<radius||
@@ -201,46 +169,43 @@ void updateBall()
     {
       ball.momy=-ball.momy;
       //ball.momx+=bat1.momx;
-      ball.posy=ball.lastPosy+ball.momy*timediff/ball.mass;
+      ball.posy=ball.lastPosy+ball.momy*timediff;
+    }
+
+
+    //Bounce off bat2
+    if((fabs(ball.posy-bat2.posy)<=(radius+1)&&
+        (ball.posx>=bat2.posx&&ball.posx<=(bat2.posx+bat2.len)))||
+        sqrt((ball.posx-bat2.posx)*(ball.posx-bat2.posx)+(ball.posy-bat2.posy)*(ball.posy-bat2.posy))<radius||
+        sqrt((ball.posx-bat2.posx-bat2.len)*(ball.posx-bat2.posx-bat2.len)+(ball.posy-bat2.posy)*(ball.posy-bat2.posy))<radius
+        )
+    {
+      ball.momy=-ball.momy;
+      //ball.momx+=bat2.momx;
+      ball.posy=ball.lastPosy+ball.momy*timediff;
     }
     
   }
 
-  int m=radius;
-  for(int x=-m;x<=m;x++)
-  {
-    for(int y=-sqrt(m*m-x*x)*2;y<=sqrt(m*m-x*x)*2;y++)
-    {
-      float px=ball.lastPosx+x;
-      float py=ball.lastPosy+y;
-      float diff=sqrt((px-ball.posx)*(px-ball.posx)+(py-ball.posy)*(py-ball.posy));
-      if(diff>=radius)
-        tft.drawPixel((px), (py), ST7735_BLACK);
-      
-      
-    }
-  }
+
+  tft.fillCircle(ball.lastPosx, ball.lastPosy, radius, ST7735_BLACK);
     ball.lastPosx=ball.posx;
   ball.lastPosy=ball.posy;
   ball.lasttime=currtime;
-  //tft.fillCircle(ball.posx, ball.posy, radius, ST7735_WHITE);
-  for(int x=-m;x<=m;x++)
-  {
-    for(int y=-m;y<=m;y++)
-    {
+  tft.fillCircle(ball.posx, ball.posy, radius, ST7735_WHITE);
 
-      float diff=sqrt(x*x+y*y);
-      if(diff<=radius)
-        tft.drawPixel((ball.posx+x), (ball.posy+y), ST7735_WHITE);
-      
-      
-    }
-  }
-  //tft.fillCircle(x, y, radius, color);
 }
-void updateBats()
+void updateBat1()
 {
-  float val=analogRead(poti);
+    //Update color
+  if(ball.posy+radius>tft.height())
+  {
+    bat1.color=ST7735_RED;
+    bat1.len-=2;
+  }
+  else if(ball.posy<bat1.posy&&bat1.color==ST7735_RED)
+    bat1.color=ST7735_GREEN;
+  float val=analogRead(bat1.poti);
   bat1.posx=(tft.width()-bat1.len)*(1.0-val/1024.0);
 //  for(int i=0;i<pos;i++)
 //    tft.drawPixel(i, tft.height()/2, ST7735_BLACK);
@@ -274,191 +239,72 @@ void updateBats()
      bat1.lastPosx=bat1.posx;
   }
 }
+
+
+void updateBat2()
+{
+    //Update color
+  if(ball.posy-radius<=0)
+  {
+    bat2.color=ST7735_RED;
+    bat2.len-=2;
+  }
+  else if(ball.posy<bat2.posy&&bat2.color==ST7735_RED)
+    bat2.color=ST7735_GREEN;
+  float val=analogRead(bat2.poti);
+  bat2.posx=(tft.width()-bat2.len)*(1.0-val/1024.0);
+//  for(int i=0;i<pos;i++)
+//    tft.drawPixel(i, tft.height()/2, ST7735_BLACK);
+//  for(int i=(pos+len);i<tft.width();i++)
+//    tft.drawPixel(i, tft.height()/2, ST7735_BLACK);
+  //if(bat2.posx!=bat2.lastPosx)
+  {
+
+
+    if(bat2.posx+bat2.len>tft.width())
+      bat2.posx=tft.width()-bat2.len;
+    if(bat2.posx>bat2.lastPosx)
+    {
+      for(int i=(bat2.lastPosx);i<(bat2.posx);i++)
+        tft.drawPixel(i, bat2.posy, ST7735_BLACK);
+      for(int i=(bat2.posx);i<(bat2.posx+bat2.len);i++)
+        tft.drawPixel(i, bat2.posy, bat2.color);
+    }
+    else
+    {
+      for(int i=(bat2.posx);i<(bat2.posx+bat2.len);i++)
+        tft.drawPixel(i, bat2.posy, bat2.color);
+      for(int i=(bat2.posx+bat2.len);i<(bat2.lastPosx+bat2.len);i++)
+        tft.drawPixel(i, bat2.posy, ST7735_BLACK);
+    }
+    
+     uint16_t currtime=millis();
+     float timediff=-(bat2.lasttime-currtime)/1000.0f;
+     bat2.momx=(bat2.posx-bat2.lastPosx)/timediff;
+     bat2.lasttime=currtime;
+     bat2.lastPosx=bat2.posx;
+  }
+}
 void loop() {
+  //updateBat1();
 
+  if(bat1.len>3&&bat2.len>3)
+    updateBall();
 
-  updateBats();
-  updateBall();
+  else
+  {
+    tft.setTextColor(ST77XX_RED);
+    tft.println("Game Over");
+    tft.setTextColor(ST77XX_GREEN);
+    if(bat1.len<=3)
+      tft.println("Lower player lost!");
+    else
+      tft.println("Upper player lost!");
+
+    return;
+  }
+  
+
 
 }
 
-void testlines(uint16_t color) {
-  tft.fillScreen(ST7735_BLACK);
-  for (int16_t x=0; x < tft.width(); x+=6) {
-    tft.drawLine(0, 0, x, tft.height()-1, color);
-  }
-  for (int16_t y=0; y < tft.height(); y+=6) {
-    tft.drawLine(0, 0, tft.width()-1, y, color);
-  }
-
-  tft.fillScreen(ST7735_BLACK);
-  for (int16_t x=0; x < tft.width(); x+=6) {
-    tft.drawLine(tft.width()-1, 0, x, tft.height()-1, color);
-  }
-  for (int16_t y=0; y < tft.height(); y+=6) {
-    tft.drawLine(tft.width()-1, 0, 0, y, color);
-  }
-
-  tft.fillScreen(ST7735_BLACK);
-  for (int16_t x=0; x < tft.width(); x+=6) {
-    tft.drawLine(0, tft.height()-1, x, 0, color);
-  }
-  for (int16_t y=0; y < tft.height(); y+=6) {
-    tft.drawLine(0, tft.height()-1, tft.width()-1, y, color);
-  }
-
-  tft.fillScreen(ST7735_BLACK);
-  for (int16_t x=0; x < tft.width(); x+=6) {
-    tft.drawLine(tft.width()-1, tft.height()-1, x, 0, color);
-  }
-  for (int16_t y=0; y < tft.height(); y+=6) {
-    tft.drawLine(tft.width()-1, tft.height()-1, 0, y, color);
-  }
-}
-
-void testdrawtext(char *text, uint16_t color) {
-  tft.setCursor(0, 0);
-  tft.setTextColor(color);
-  tft.setTextWrap(true);
-  tft.print(text);
-}
-
-void testfastlines(uint16_t color1, uint16_t color2) {
-  tft.fillScreen(ST7735_BLACK);
-  for (int16_t y=0; y < tft.height(); y+=5) {
-    tft.drawFastHLine(0, y, tft.width(), color1);
-  }
-  for (int16_t x=0; x < tft.width(); x+=5) {
-    tft.drawFastVLine(x, 0, tft.height(), color2);
-  }
-}
-
-void testdrawrects(uint16_t color) {
-  tft.fillScreen(ST7735_BLACK);
-  for (int16_t x=0; x < tft.width(); x+=6) {
-    tft.drawRect(tft.width()/2 -x/2, tft.height()/2 -x/2 , x, x, color);
-  }
-}
-
-void testfillrects(uint16_t color1, uint16_t color2) {
-  tft.fillScreen(ST7735_BLACK);
-  for (int16_t x=tft.width()-1; x > 6; x-=6) {
-    tft.fillRect(tft.width()/2 -x/2, tft.height()/2 -x/2 , x, x, color1);
-    tft.drawRect(tft.width()/2 -x/2, tft.height()/2 -x/2 , x, x, color2);
-  }
-}
-
-void testfillcircles(uint8_t radius, uint16_t color) {
-  for (int16_t x=radius; x < tft.width(); x+=radius*2) {
-    for (int16_t y=radius; y < tft.height(); y+=radius*2) {
-      tft.fillCircle(x, y, radius, color);
-    }
-  }
-}
-
-void testdrawcircles(uint8_t radius, uint16_t color) {
-  for (int16_t x=0; x < tft.width()+radius; x+=radius*2) {
-    for (int16_t y=0; y < tft.height()+radius; y+=radius*2) {
-      tft.drawCircle(x, y, radius, color);
-    }
-  }
-}
-
-void testtriangles() {
-  tft.fillScreen(ST7735_BLACK);
-  int color = 0xF800;
-  int t;
-  int w = tft.width()/2;
-  int x = tft.height()-1;
-  int y = 0;
-  int z = tft.width();
-  for(t = 0 ; t <= 15; t+=1) {
-    tft.drawTriangle(w, y, y, x, z, x, color);
-    x-=4;
-    y+=4;
-    z-=4;
-    color+=100;
-  }
-}
-
-void testroundrects() {
-  tft.fillScreen(ST7735_BLACK);
-  int color = 100;
-  int i;
-  int t;
-  for(t = 0 ; t <= 4; t+=1) {
-    int x = 0;
-    int y = 0;
-    int w = tft.width()-2;
-    int h = tft.height()-2;
-    for(i = 0 ; i <= 16; i+=1) {
-      tft.drawRoundRect(x, y, w, h, 5, color);
-      x+=2;
-      y+=3;
-      w-=4;
-      h-=6;
-      color+=1100;
-    }
-    color+=100;
-  }
-}
-
-void tftPrintTest() {
-  tft.setTextWrap(false);
-  tft.fillScreen(ST7735_BLACK);
-  tft.setCursor(0, 30);
-  tft.setTextColor(ST7735_RED);
-  tft.setTextSize(1);
-  tft.println("Hello World!");
-  tft.setTextColor(ST7735_YELLOW);
-  tft.setTextSize(2);
-  tft.println("Hello World!");
-  tft.setTextColor(ST7735_GREEN);
-  tft.setTextSize(3);
-  tft.println("Hello World!");
-  tft.setTextColor(ST7735_BLUE);
-  tft.setTextSize(4);
-  tft.print(1234.567);
-  delay(1500);
-  tft.setCursor(0, 0);
-  tft.fillScreen(ST7735_BLACK);
-  tft.setTextColor(ST7735_WHITE);
-  tft.setTextSize(0);
-  tft.println("Hello World!");
-  tft.setTextSize(1);
-  tft.setTextColor(ST7735_GREEN);
-  tft.print(p, 6);
-  tft.println(" Want pi?");
-  tft.println(" ");
-  tft.print(8675309, HEX); // print 8,675,309 out in HEX!
-  tft.println(" Print HEX!");
-  tft.println(" ");
-  tft.setTextColor(ST7735_WHITE);
-  tft.println("Sketch has been");
-  tft.println("running for: ");
-  tft.setTextColor(ST7735_MAGENTA);
-  tft.print(millis() / 1000);
-  tft.setTextColor(ST7735_WHITE);
-  tft.print(" seconds.");
-}
-
-void mediabuttons() {
-  // play
-  tft.fillScreen(ST7735_BLACK);
-  tft.fillRoundRect(25, 10, 78, 60, 8, ST7735_WHITE);
-  tft.fillTriangle(42, 20, 42, 60, 90, 40, ST7735_RED);
-  delay(500);
-  // pause
-  tft.fillRoundRect(25, 90, 78, 60, 8, ST7735_WHITE);
-  tft.fillRoundRect(39, 98, 20, 45, 5, ST7735_GREEN);
-  tft.fillRoundRect(69, 98, 20, 45, 5, ST7735_GREEN);
-  delay(500);
-  // play color
-  tft.fillTriangle(42, 20, 42, 60, 90, 40, ST7735_BLUE);
-  delay(50);
-  // pause color
-  tft.fillRoundRect(39, 98, 20, 45, 5, ST7735_RED);
-  tft.fillRoundRect(69, 98, 20, 45, 5, ST7735_RED);
-  // play color
-  tft.fillTriangle(42, 20, 42, 60, 90, 40, ST7735_GREEN);
-}
